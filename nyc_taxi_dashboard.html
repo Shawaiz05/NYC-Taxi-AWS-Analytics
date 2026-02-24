@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NYC Taxi Analytics — AWS Data Lake</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'Syne',sans-serif;background:#06060F;color:#fff;min-height:100vh;padding:24px;overflow-x:hidden;cursor:none;}
+.cur{position:fixed;width:8px;height:8px;background:#A78BFA;border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);mix-blend-mode:screen;}
+.cur-ring{position:fixed;width:32px;height:32px;border:1px solid rgba(167,139,250,0.4);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:left .08s,top .08s,width .3s,height .3s;}
+.cur.big{width:16px;height:16px;}
+.cur-ring.big{width:52px;height:52px;}
+.aurora{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+.ab{position:absolute;border-radius:50%;filter:blur(100px);}
+.ab1{width:800px;height:600px;background:rgba(124,58,237,0.22);top:-200px;left:-200px;animation:drift 14s ease-in-out infinite;}
+.ab2{width:700px;height:700px;background:rgba(14,165,233,0.16);top:10%;right:-200px;animation:drift 18s ease-in-out infinite reverse;}
+.ab3{width:600px;height:500px;background:rgba(16,185,129,0.13);bottom:-150px;left:20%;animation:drift 12s ease-in-out infinite 4s;}
+.ab4{width:500px;height:500px;background:rgba(245,158,11,0.11);bottom:5%;right:5%;animation:drift 20s ease-in-out infinite 8s;}
+.ab5{width:400px;height:300px;background:rgba(236,72,153,0.1);top:50%;left:40%;animation:drift 16s ease-in-out infinite 2s;}
+@keyframes drift{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(40px,-30px) scale(1.05)}75%{transform:translate(-30px,40px) scale(0.95)}}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(167,139,250,0.018) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,0.018) 1px,transparent 1px);background-size:50px 50px;pointer-events:none;z-index:0;}
+.page{position:relative;z-index:1;max-width:1320px;margin:0 auto;}
+.g{background:rgba(255,255,255,0.03);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.07);border-radius:18px;transition:border-color .3s;}
+.g:hover{border-color:rgba(167,139,250,0.14);}
+
+/* HEADER */
+.hdr{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:18px 26px;margin-bottom:14px;gap:20px;}
+.h-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:4px;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.h-eyebrow::before{content:'';width:20px;height:1px;background:rgba(167,139,250,0.4);}
+.h-title{font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1;}
+.h-title .grad{background:linear-gradient(135deg,#A78BFA,#38BDF8,#10B981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200% auto;animation:gm 4s linear infinite;}
+@keyframes gm{0%{background-position:0%}100%{background-position:200%}}
+.h-sub{font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(255,255,255,0.22);margin-top:6px;letter-spacing:1px;}
+.pipe-row{display:flex;align-items:center;gap:4px;}
+.ps{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);transition:all .2s;}
+.ps:hover{background:rgba(167,139,250,0.08);border-color:rgba(167,139,250,0.2);}
+.pd{width:5px;height:5px;border-radius:50%;}
+.d1{background:#A78BFA;}.d2{background:#38BDF8;}.d3{background:#10B981;}.d4{background:#F59E0B;}.d5{background:#EC4899;}
+.pn{font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(255,255,255,0.45);}
+.parr{font-size:12px;color:rgba(255,255,255,0.1);}
+.dbadge{font-family:'IBM Plex Mono',monospace;font-size:10px;background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);color:#C4B5FD;padding:4px 14px;border-radius:20px;margin-top:10px;display:inline-block;letter-spacing:1px;}
+.h-author{font-size:14px;font-weight:700;color:rgba(255,255,255,0.8);text-align:right;}
+.h-role{font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(255,255,255,0.25);margin-top:4px;letter-spacing:1px;text-align:right;}
+.h-live{display:inline-flex;align-items:center;gap:5px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);color:#6EE7B7;padding:4px 12px;border-radius:20px;font-size:9px;font-family:'IBM Plex Mono',monospace;margin-top:8px;letter-spacing:1px;}
+.ldot{width:4px;height:4px;background:#10B981;border-radius:50%;animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* FILTERS */
+.fbar{display:flex;align-items:center;gap:7px;padding:11px 18px;margin-bottom:14px;flex-wrap:wrap;}
+.flbl{font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:2px;}
+.sep{width:1px;height:14px;background:rgba(255,255,255,0.07);margin:0 3px;}
+.fb{font-family:'IBM Plex Mono',monospace;font-size:9px;padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.07);background:transparent;color:rgba(255,255,255,0.3);cursor:none;transition:all .2s;text-transform:uppercase;letter-spacing:.5px;}
+.fb:hover{border-color:rgba(167,139,250,0.3);color:#C4B5FD;background:rgba(167,139,250,0.05);}
+.fb.on{background:rgba(167,139,250,0.14);border-color:rgba(167,139,250,0.4);color:#C4B5FD;box-shadow:0 0 14px rgba(167,139,250,0.1);}
+.fb.on-g{background:rgba(16,185,129,0.14);border-color:rgba(16,185,129,0.4);color:#6EE7B7;}
+
+/* KPIs */
+.krow{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:13px;}
+.kpi{padding:16px 18px;position:relative;overflow:hidden;cursor:none;transition:transform .25s,box-shadow .25s;}
+.kpi:hover{transform:translateY(-5px);box-shadow:0 16px 48px rgba(0,0,0,0.5);}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;opacity:0;transition:opacity .3s;}
+.kpi:hover::before{opacity:1;}
+.k1::before{background:linear-gradient(90deg,transparent,#A78BFA,transparent);}
+.k2::before{background:linear-gradient(90deg,transparent,#10B981,transparent);}
+.k3::before{background:linear-gradient(90deg,transparent,#38BDF8,transparent);}
+.k4::before{background:linear-gradient(90deg,transparent,#F59E0B,transparent);}
+.k5::before{background:linear-gradient(90deg,transparent,#EC4899,transparent);}
+.kglow{position:absolute;width:130px;height:130px;border-radius:50%;filter:blur(45px);opacity:0;top:-40px;right:-20px;transition:opacity .3s;pointer-events:none;}
+.kpi:hover .kglow{opacity:.18;}
+.kg1{background:#A78BFA;}.kg2{background:#10B981;}.kg3{background:#38BDF8;}.kg4{background:#F59E0B;}.kg5{background:#EC4899;}
+.klbl{font-family:'IBM Plex Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.22);margin-bottom:8px;}
+.kval{font-size:30px;font-weight:800;letter-spacing:-1px;line-height:1;margin-bottom:4px;}
+.kv1{background:linear-gradient(135deg,#C4B5FD,#A78BFA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.kv2{background:linear-gradient(135deg,#6EE7B7,#10B981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.kv3{background:linear-gradient(135deg,#7DD3FC,#38BDF8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.kv4{background:linear-gradient(135deg,#FCD34D,#F59E0B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.kv5{background:linear-gradient(135deg,#F9A8D4,#EC4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.ksub{font-size:10px;color:rgba(255,255,255,0.22);}
+.ktip{position:absolute;bottom:0;left:0;right:0;background:rgba(167,139,250,0.12);font-family:'IBM Plex Mono',monospace;font-size:8px;color:#C4B5FD;text-align:center;padding:4px;transform:translateY(100%);transition:transform .25s;letter-spacing:.5px;}
+.kpi:hover .ktip{transform:translateY(0);}
+
+/* LAYOUT */
+.row1{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;margin-bottom:12px;}
+.row2{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:12px;}
+.card{padding:18px;}
+.ctop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+.ctitle{font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);}
+.csub{font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(255,255,255,0.22);margin-top:3px;}
+.cbadge{font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:1px;flex-shrink:0;}
+.cb1{background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.2);color:#C4B5FD;}
+.cb2{background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.2);color:#7DD3FC;}
+.cb3{background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.2);color:#6EE7B7;}
+.cb4{background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.2);color:#FCD34D;}
+.cb5{background:rgba(236,72,153,0.12);border:1px solid rgba(236,72,153,0.2);color:#F9A8D4;}
+.trow{display:flex;gap:5px;margin-bottom:10px;}
+.tb{font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 9px;border-radius:20px;border:1px solid rgba(255,255,255,0.07);background:transparent;color:rgba(255,255,255,0.22);cursor:none;transition:all .2s;text-transform:uppercase;letter-spacing:.5px;}
+.tb.on{background:rgba(167,139,250,0.14);border-color:rgba(167,139,250,0.35);color:#C4B5FD;}
+.tb.ong{background:rgba(16,185,129,0.14);border-color:rgba(16,185,129,0.35);color:#6EE7B7;}
+
+/* ZONES */
+.zrow{display:flex;align-items:center;gap:8px;padding:8px 5px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:none;border-radius:6px;transition:background .2s;}
+.zrow:hover{background:rgba(167,139,250,0.04);}
+.zrow:last-child{border-bottom:none;}
+.znum{font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(255,255,255,0.18);width:16px;flex-shrink:0;}
+.zname{font-size:11px;font-weight:600;color:rgba(255,255,255,0.72);flex:1;}
+.zbw{width:68px;flex-shrink:0;}
+.zbb{height:2px;background:rgba(255,255,255,0.05);border-radius:1px;overflow:hidden;}
+.zbf{height:100%;border-radius:1px;}
+.zv{font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);width:46px;text-align:right;flex-shrink:0;}
+.zf{font-family:'IBM Plex Mono',monospace;font-size:9px;color:#6EE7B7;width:46px;text-align:right;flex-shrink:0;display:none;}
+.zrow:hover .zv{display:none;}
+.zrow:hover .zf{display:block;}
+
+/* INSIGHTS */
+.ibox{border-radius:12px;padding:12px;margin-bottom:8px;transition:transform .2s,box-shadow .2s;cursor:default;}
+.ibox:hover{transform:translateX(5px);box-shadow:0 4px 24px rgba(0,0,0,0.35);}
+.ib1{background:linear-gradient(135deg,rgba(167,139,250,0.1),rgba(56,189,248,0.06));border:1px solid rgba(167,139,250,0.15);}
+.ib2{background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(236,72,153,0.06));border:1px solid rgba(245,158,11,0.15);}
+.ib3{background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(56,189,248,0.05));border:1px solid rgba(16,185,129,0.15);}
+.inum{font-size:26px;font-weight:800;letter-spacing:-1px;line-height:1;margin-bottom:4px;}
+.in1{background:linear-gradient(135deg,#C4B5FD,#7DD3FC);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.in2{background:linear-gradient(135deg,#FCD34D,#F9A8D4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.in3{background:linear-gradient(135deg,#6EE7B7,#7DD3FC);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.itxt{font-size:10px;color:rgba(255,255,255,0.28);line-height:1.6;}
+
+/* FOOTER */
+.ftr{margin-top:12px;padding:11px 20px;display:flex;justify-content:space-between;align-items:center;}
+.ftxt{font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(255,255,255,0.16);}
+.ftxt strong{color:rgba(255,255,255,0.42);}
+.ftechs{display:flex;gap:4px;}
+.ftp{font-family:'IBM Plex Mono',monospace;font-size:8px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.18);text-transform:uppercase;}
+</style>
+</head>
+<body>
+<div class="cur" id="cur"></div>
+<div class="cur-ring" id="ring"></div>
+<div class="aurora">
+  <div class="ab ab1"></div><div class="ab ab2"></div>
+  <div class="ab ab3"></div><div class="ab ab4"></div><div class="ab ab5"></div>
+</div>
+
+<div class="page">
+
+<!-- HEADER -->
+<div class="hdr g">
+  <div>
+    <div class="h-eyebrow">AWS Serverless Data Lake</div>
+    <div class="h-title">NYC <span class="grad">Taxi</span> Analytics</div>
+    <div class="h-sub">3,066,766 real trips · Jan 2023 · S3 → Glue → Athena → Python</div>
+  </div>
+  <div style="text-align:center;">
+    <div class="pipe-row">
+      <div class="ps"><div class="pd d1"></div><div class="pn">S3</div></div>
+      <div class="parr">→</div>
+      <div class="ps"><div class="pd d2"></div><div class="pn">Glue</div></div>
+      <div class="parr">→</div>
+      <div class="ps"><div class="pd d3"></div><div class="pn">Athena</div></div>
+      <div class="parr">→</div>
+      <div class="ps"><div class="pd d4"></div><div class="pn">Python</div></div>
+      <div class="parr">→</div>
+      <div class="ps"><div class="pd d5"></div><div class="pn">Dashboard</div></div>
+    </div>
+    <div class="dbadge">3,066,766 Real Trips Analysed</div>
+  </div>
+  <div style="text-align:right;">
+    <div class="h-author">Mohammed Shawaiz Hussain</div>
+    <div class="h-role">Data Analyst · ML Engineer · Open to Relocation</div>
+    <div class="h-live"><div class="ldot"></div>AWS Built · $0 Cost</div>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<div class="fbar g">
+  <span class="flbl">Time</span>
+  <button class="fb on" id="f-all" onclick="setFilter('all')">All Hours</button>
+  <button class="fb" id="f-am" onclick="setFilter('am')">AM (0–11)</button>
+  <button class="fb" id="f-pm" onclick="setFilter('pm')">PM (12–23)</button>
+  <button class="fb" id="f-peak" onclick="setFilter('peak')">Peak (4–10PM)</button>
+  <div class="sep"></div>
+  <span class="flbl">Metric</span>
+  <button class="fb on" id="f-trips" onclick="setMetric('trips')">Trip Count</button>
+  <button class="fb" id="f-fare" onclick="setMetric('fare')">Avg Fare $</button>
+</div>
+
+<!-- KPIs -->
+<div class="krow">
+  <div class="kpi g k1" onclick="setFilter('all')">
+    <div class="kglow kg1"></div>
+    <div class="klbl">Total Trips</div>
+    <div class="kval kv1">3.06M</div>
+    <div class="ksub">Jan 2023 · Real data</div>
+    <div class="ktip">↑ Click → All hours view</div>
+  </div>
+  <div class="kpi g k2" onclick="setMetric(curMetric==='trips'?'fare':'trips')">
+    <div class="kglow kg2"></div>
+    <div class="klbl">Avg Fare</div>
+    <div class="kval kv2">$18.72</div>
+    <div class="ksub">Per trip average</div>
+    <div class="ktip">↑ Click → Toggle fare/trips</div>
+  </div>
+  <div class="kpi g k3" onclick="setFilter('peak')">
+    <div class="kglow kg3"></div>
+    <div class="klbl">Peak Hour</div>
+    <div class="kval kv3">6 PM</div>
+    <div class="ksub">214,233 trips</div>
+    <div class="ktip">↑ Click → Peak hours only</div>
+  </div>
+  <div class="kpi g k4">
+    <div class="kglow kg4"></div>
+    <div class="klbl">Busiest Day</div>
+    <div class="kval kv4">Tue</div>
+    <div class="ksub">486,927 trips</div>
+    <div class="ktip">Tuesday dominates weekly</div>
+  </div>
+  <div class="kpi g k5">
+    <div class="kglow kg5"></div>
+    <div class="klbl">Card Payments</div>
+    <div class="kval kv5">79%</div>
+    <div class="ksub">2.4M trips by card</div>
+    <div class="ktip">$4.17 avg tip vs $0 cash</div>
+  </div>
+</div>
+
+<!-- ROW 1 -->
+<div class="row1">
+  <div class="card g">
+    <div class="ctop">
+      <div>
+        <div class="ctitle">Hourly Trip Demand</div>
+        <div class="csub" id="lsub">All 24 hours · 3,066,766 total trips</div>
+      </div>
+      <span class="cbadge cb1" id="lbadge">All Hours</span>
+    </div>
+    <div class="trow">
+      <button class="tb on" id="tb-trips" onclick="setMetric('trips')">Trip Count</button>
+      <button class="tb" id="tb-fare" onclick="setMetric('fare')">Avg Fare $</button>
+    </div>
+    <div style="height:205px"><canvas id="lineChart"></canvas></div>
+  </div>
+  <div class="card g">
+    <div class="ctop">
+      <div><div class="ctitle">Top Pickup Zones</div><div class="csub">Hover → see avg fare</div></div>
+      <span class="cbadge cb4">Live Data</span>
+    </div>
+    <div class="zrow"><span class="znum">01</span><span class="zname">JFK Airport</span><div class="zbw"><div class="zbb"><div class="zbf" style="width:100%;background:linear-gradient(90deg,#A78BFA,#38BDF8)"></div></div></div><span class="zv">157,213</span><span class="zf">$60.32</span></div>
+    <div class="zrow"><span class="znum">02</span><span class="zname">Midtown (237)</span><div class="zbw"><div class="zbb"><div class="zbf" style="width:93%;background:linear-gradient(90deg,#A78BFA,#38BDF8)"></div></div></div><span class="zv">147,064</span><span class="zf">$12.41</span></div>
+    <div class="zrow"><span class="znum">03</span><span class="zname">Upper East Side</span><div class="zbw"><div class="zbb"><div class="zbf" style="width:87%;background:linear-gradient(90deg,#38BDF8,#10B981)"></div></div></div><span class="zv">137,619</span><span class="zf">$13.21</span></div>
+    <div class="zrow"><span class="znum">04</span><span class="zname">Midtown East</span><div class="zbw"><div class="zbb"><div class="zbf" style="width:85%;background:linear-gradient(90deg,#38BDF8,#10B981)"></div></div></div><span class="zv">134,411</span><span class="zf">$15.31</span></div>
+    <div class="zrow"><span class="znum">05</span><span class="zname">Penn Station</span><div class="zbw"><div class="zbb"><div class="zbf" style="width:69%;background:linear-gradient(90deg,#10B981,#F59E0B)"></div></div></div><span class="zv">108,409</span><span class="zf">$15.62</span></div>
+    <div class="zrow"><span class="znum">06</span><span class="zname">Midtown South</span><div class="zbw"><div class="zbb"><div class="zbf" style="width:66%;background:linear-gradient(90deg,#10B981,#F59E0B)"></div></div></div><span class="zv">104,621</span><span class="zf">$14.96</span></div>
+  </div>
+</div>
+
+<!-- ROW 2 -->
+<div class="row2">
+  <div class="card g">
+    <div class="ctop"><div><div class="ctitle">Trips by Day</div><div class="csub">Click bar to highlight</div></div><span class="cbadge cb3">Weekly</span></div>
+    <div style="height:168px"><canvas id="barChart"></canvas></div>
+  </div>
+  <div class="card g">
+    <div class="ctop"><div><div class="ctitle">Payment Methods</div><div class="csub">Hover for breakdown</div></div><span class="cbadge cb2">Payment</span></div>
+    <div style="height:168px"><canvas id="donutChart"></canvas></div>
+  </div>
+  <div class="card g">
+    <div class="ctop"><div><div class="ctitle">Key Findings</div><div class="csub">Real Athena SQL insights</div></div><span class="cbadge cb5">Insights</span></div>
+    <div class="ibox ib1">
+      <div class="inum in1">12×</div>
+      <div class="itxt">more trips at 6PM vs 4AM · 214K vs 17K — strongest demand spike</div>
+    </div>
+    <div class="ibox ib2">
+      <div class="inum in2">$0</div>
+      <div class="itxt">cash tip vs $4.17 card tip — 100% tip gap between payment types</div>
+    </div>
+    <div class="ibox ib3">
+      <div class="inum in3">4×</div>
+      <div class="itxt">JFK fare ($60.32) vs city avg ($14.80) — airport premium is massive</div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="ftr g">
+  <div class="ftxt">Built by <strong>Mohammed Shawaiz Hussain</strong> · NYC Taxi AWS Data Lake · 3,066,766 Real Trips · Jan 2023 · 2025</div>
+  <div class="ftechs">
+    <span class="ftp">AWS S3</span><span class="ftp">AWS Glue</span><span class="ftp">Athena</span><span class="ftp">Python</span><span class="ftp">SQL</span><span class="ftp">Chart.js</span>
+  </div>
+</div>
+
+</div>
+
+<script>
+// CURSOR
+const cur=document.getElementById('cur'),ring=document.getElementById('ring');
+let mx=0,my=0;
+document.addEventListener('mousemove',e=>{
+  mx=e.clientX;my=e.clientY;
+  cur.style.left=mx+'px';cur.style.top=my+'px';
+  ring.style.left=mx+'px';ring.style.top=my+'px';
+});
+document.querySelectorAll('button,.kpi,.zrow,.ibox,.ps').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{cur.classList.add('big');ring.classList.add('big');});
+  el.addEventListener('mouseleave',()=>{cur.classList.remove('big');ring.classList.remove('big');});
+});
+
+// DATA
+const HL=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23];
+const HT=[84026,59149,41498,27003,17463,17719,43394,86267,116164,130224,142608,153024,168557,177284,189972,194799,194199,207825,214233,191241,164387,160162,146028,113381];
+const HF=[20.02,18.13,17.21,18.28,22.89,26.9,22.4,19.13,17.64,17.72,17.81,17.49,17.87,18.56,19.82,19.39,19.65,18.75,17.14,17.72,18.12,18.59,19.51,20.74];
+const WL=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const WT=[401042,486927,413165,438468,430714,437711,432580];
+const PL=['Credit Card','Cash','Unknown','Dispute','No Charge'];
+const PT=[2411185,526058,71677,18366,13321];
+
+const FD={
+  all:{l:HL,t:HT,f:HF,badge:'All Hours',sub:'All 24 hours · 3,066,766 total trips'},
+  am:{l:HL.slice(0,12),t:HT.slice(0,12),f:HF.slice(0,12),badge:'AM Hours',sub:'Midnight → Noon · quiet period'},
+  pm:{l:HL.slice(12),t:HT.slice(12),f:HF.slice(12),badge:'PM Hours',sub:'Noon → Midnight · high demand'},
+  peak:{l:[16,17,18,19,20,21],t:[194799,207825,214233,191241,164387,160162],f:[19.39,18.75,17.14,17.72,18.12,18.59],badge:'Peak Hours',sub:'4PM–10PM · evening rush window'},
+};
+
+let cf='all', curMetric='trips';
+const gc='rgba(255,255,255,0.04)';
+const tk={color:'rgba(255,255,255,0.2)',font:{family:'IBM Plex Mono',size:9}};
+const tip={backgroundColor:'rgba(6,6,15,0.95)',borderColor:'rgba(167,139,250,0.3)',borderWidth:1,titleColor:'#C4B5FD',bodyColor:'rgba(255,255,255,0.5)',padding:10};
+
+// LINE
+const lc=new Chart(document.getElementById('lineChart'),{
+  type:'line',
+  data:{labels:HL,datasets:[{data:HT,borderColor:'#A78BFA',backgroundColor:'rgba(167,139,250,0.07)',borderWidth:2,fill:true,tension:0.4,pointBackgroundColor:'#A78BFA',pointRadius:3,pointHoverRadius:7,pointHoverBackgroundColor:'#fff',pointHoverBorderColor:'#A78BFA',pointHoverBorderWidth:2}]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{...tip,callbacks:{title:c=>`Hour: ${c[0].label}:00`,label:c=>curMetric==='trips'?` ${Number(c.raw).toLocaleString()} trips`:` $${c.raw} avg fare`}}},
+    scales:{x:{ticks:tk,grid:{color:gc}},y:{ticks:{...tk,callback:v=>curMetric==='trips'?(v/1000).toFixed(0)+'K':'$'+v},grid:{color:gc}}}
+  }
+});
+
+// BAR
+const bc=new Chart(document.getElementById('barChart'),{
+  type:'bar',
+  data:{labels:WL,datasets:[{data:WT,backgroundColor:WT.map((_,i)=>i===1?'rgba(167,139,250,0.45)':i===5?'rgba(236,72,153,0.35)':'rgba(167,139,250,0.12)'),borderColor:WT.map((_,i)=>i===1?'#A78BFA':i===5?'#EC4899':'rgba(167,139,250,0.25)'),borderWidth:1,borderRadius:6,borderSkipped:false}]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{...tip,callbacks:{label:c=>` ${Number(c.raw).toLocaleString()} trips`}}},
+    scales:{x:{ticks:tk,grid:{color:gc}},y:{ticks:{...tk,callback:v=>(v/1000).toFixed(0)+'K'},grid:{color:gc}}},
+    onClick:(_,els)=>{
+      if(!els.length)return;
+      const i=els[0].index;
+      bc.data.datasets[0].backgroundColor=WT.map((_,j)=>j===i?'rgba(167,139,250,0.6)':'rgba(167,139,250,0.07)');
+      bc.data.datasets[0].borderColor=WT.map((_,j)=>j===i?'#A78BFA':'rgba(167,139,250,0.15)');
+      bc.update();
+    }
+  }
+});
+
+// DONUT
+new Chart(document.getElementById('donutChart'),{
+  type:'doughnut',
+  data:{labels:PL,datasets:[{data:PT,backgroundColor:['rgba(167,139,250,0.3)','rgba(56,189,248,0.3)','rgba(16,185,129,0.3)','rgba(245,158,11,0.3)','rgba(236,72,153,0.3)'],borderColor:['#A78BFA','#38BDF8','#10B981','#F59E0B','#EC4899'],borderWidth:2,hoverOffset:10}]},
+  options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+    plugins:{legend:{display:true,position:'bottom',labels:{color:'rgba(255,255,255,0.28)',font:{size:8,family:'IBM Plex Mono'},padding:8,boxWidth:8,boxHeight:8}},
+    tooltip:{...tip,callbacks:{label:c=>`${c.label}: ${Number(c.raw).toLocaleString()} (${(c.raw/3066607*100).toFixed(1)}%)`}}}
+  }
+});
+
+// CONTROLS
+function setFilter(f){
+  cf=f;
+  const d=FD[f];
+  lc.data.labels=d.l;
+  lc.data.datasets[0].data=curMetric==='trips'?d.t:d.f;
+  lc.update();
+  document.getElementById('lsub').textContent=d.sub;
+  document.getElementById('lbadge').textContent=d.badge;
+  ['all','am','pm','peak'].forEach(x=>document.getElementById('f-'+x).className='fb');
+  document.getElementById('f-'+f).className='fb on';
+}
+
+function setMetric(m){
+  curMetric=m;
+  const d=FD[cf];
+  lc.data.datasets[0].data=m==='trips'?d.t:d.f;
+  lc.data.datasets[0].borderColor=m==='trips'?'#A78BFA':'#10B981';
+  lc.data.datasets[0].backgroundColor=m==='trips'?'rgba(167,139,250,0.07)':'rgba(16,185,129,0.07)';
+  lc.update();
+  ['trips','fare'].forEach(x=>{
+    document.getElementById('f-'+x).className='fb';
+    document.getElementById('tb-'+x).className='tb';
+  });
+  document.getElementById('f-'+m).className=m==='trips'?'fb on':'fb on-g';
+  document.getElementById('tb-'+m).className=m==='trips'?'tb on':'tb ong';
+}
+</script>
+</body>
+</html>
